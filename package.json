@@ -1,0 +1,27 @@
+{
+  "name": "health-dynamo-db",
+  "version": "1.0.0",
+  "url": "https://github.com/rafaelrpinto/health-dynamo-db",
+  "description": "Node.js project that builds a DynamoDB database of Brazilian health facilities based on government provided CSV files.",
+  "main": "src/index.js",
+  "scripts": {
+    "small": "node src/index.js files/cnes.small.csv  | bunyan -o short",
+    "full": "node src/index.js files/cnes.csv  | bunyan -o short",
+    "debug": "node --inspect-brk src/index.js files/cnes.small.csv  | bunyan -o short"
+  },
+  "author": "Rafale Pinto",
+  "email": "raprp@posteo.de",
+  "license": "MIT",
+  "dependencies": {
+    "aws-sdk": "^2.69.0",
+    "bunyan": "^1.8.10",
+    "dynamodb-wrapper": "file:../dynamodb-wrapper",
+    "fast-csv": "^2.4.0",
+    "remove-accents": "^0.4.0"
+  },
+  "devDependencies": {
+    "eslint": "^3.19.0",
+    "eslint-config-airbnb-base": "^11.2.0",
+    "eslint-plugin-import": "^2.3.0"
+  }
+}

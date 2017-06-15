@@ -1,0 +1,15 @@
+// Rename the extension of this file to .js and inform the details below
+
+module.exports = {
+  region: 'XXXXX,
+  accessKeyId: 'XXXXXX',
+  secretAccessKey: 'XXXXXX',
+  sslEnabled: true,
+  apiVersion: '2012-08-10',
+  maxRetries: 0,
+  facilities: {
+    tableName: 'Facilities',
+    wcu: 20,
+    rcu: 20
+  }
+};

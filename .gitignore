@@ -1,0 +1,5 @@
+node_modules
+npm-debug.log
+files/cnes.csv
+files/farmacia_popular.csv
+src/aws-config.js
