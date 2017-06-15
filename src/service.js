@@ -95,7 +95,7 @@ class HealthFacilitiesService {
       [awsConfig.facilities.tableName]: {
         partitionStrategy: 'EvenlyDistributedGroupWCU',
         targetGroupWCU: awsConfig.facilities.wcu,
-        groupDelayMs: 200
+        groupDelayMs: 150
       }
     });
   }

@@ -24,6 +24,7 @@ function val(value) {
  */
 function filterServices(services) {
   let array = val(services).split('|');
+  array = array.map(obj => obj.trim());
   return Array.from(new Set(array).values());
 }
 
