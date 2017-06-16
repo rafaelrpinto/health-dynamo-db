@@ -26,6 +26,39 @@ To create the db with the full dataset run:
 
 To improve performance and avoid maps full of markers we only map hospitals, clinics, mobile units, etc.
 
-## Expected output:
+## Executing Radius Queries:
 
-TODO
+```javascript
+let bunyan = require('bunyan');
+let AWS = require('aws-sdk');
+let ddbGeo = require('dynamodb-geo');
+let awsConfig = require('./aws-config');
+
+async function query() {
+  let log = bunyan.createLogger({name: 'dynamodb-logger'});
+  try {
+    // dynamo setup
+    const dynamodb = new AWS.DynamoDB(awsConfig);
+    const geoDynamoConfig = new ddbGeo.GeoDataManagerConfiguration(dynamodb, awsConfig.facilities.tableName);
+    geoDynamoConfig.hashKeyLength = 6;
+    geoDynamoConfig.rangeKeyAttributeName = 'facilityId';
+    const geoTableManager = new ddbGeo.GeoDataManager(geoDynamoConfig);
+
+
+    log.info('Searching for facilities...');
+    let facilities = await geoTableManager.queryRadius({
+      RadiusInMeter: 2000,
+      CenterPoint: {
+        latitude: -22.933380,
+        longitude: -43.244348
+      }
+    });
+
+    log.info(`${facilities.length} facilities found!`);
+  } catch (err) {
+    log.error(err);
+  }
+}
+
+query();
+```
