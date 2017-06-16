@@ -26,6 +26,12 @@ To create the db with the full dataset run:
 
 To improve performance and avoid maps full of markers we only map hospitals, clinics, mobile units, etc.
 
+## Custom Fork as Dependency
+
+To correctly build the database its required to clone [this fork](https://github.com/rafaelrpinto/dynamodb-wrapper) on the parent folder of health-dynamo-db. See package.json for the exact path.
+
+If the PR with the suggested changes is accepted I will modify the dependencies to use the upstream project.
+
 ## Expected output:
 
 TODO
