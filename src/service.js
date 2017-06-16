@@ -28,7 +28,7 @@ let log = bunyan.createLogger({name: 'dynamodb-logger'});
 // dynamo setup
 const dynamodb = new AWS.DynamoDB(awsConfig);
 const geoDynamoConfig = new ddbGeo.GeoDataManagerConfiguration(dynamodb, awsConfig.facilities.tableName);
-geoDynamoConfig.hashKeyLength = 7; //optimized for 1km radius queries
+geoDynamoConfig.hashKeyLength = 6;
 geoDynamoConfig.rangeKeyAttributeName = 'facilityId';
 const geoTableManager = new ddbGeo.GeoDataManager(geoDynamoConfig);
 
@@ -58,8 +58,8 @@ class HealthFacilitiesService {
     log.info(`Total facilities to be sent to DynamoDB: ${this.writeRequests.size}`);
     log.info(`Total facilities ignored: ${this.ignored}`);
 
-    const BATCH_SIZE = 25;
-    const WAIT_BETWEEN_BATCHES_MS = 700;
+    const BATCH_SIZE = 20;
+    const WAIT_BETWEEN_BATCHES_MS = 500;
     const TOTAL_FACILITIES = this.writeRequests.size;
 
     let writeRequests = Array.from(this.writeRequests.values());
