@@ -108,13 +108,19 @@ class HealthFacilitiesService {
       TableName: awsConfig.facilities.tableName,
       KeySchema: [
         {
-          AttributeName: 'id',
+          AttributeName: 'state',
           KeyType: 'HASH'
+        }, {
+          AttributeName: 'facilityId',
+          KeyType: 'RANGE'
         }
       ],
       AttributeDefinitions: [
         {
-          AttributeName: 'id',
+          AttributeName: 'state',
+          AttributeType: 'S'
+        }, {
+          AttributeName: 'facilityId',
           AttributeType: 'N'
         }
       ],
@@ -149,7 +155,10 @@ class HealthFacilitiesService {
       this.writeRequests.set(facility.id, {
         PutRequest: {
           Item: {
-            id: {
+            state: {
+              S: facility.address.state
+            },
+            facilityId: {
               N: facility.id
             },
             ibge: {
@@ -176,22 +185,19 @@ class HealthFacilitiesService {
             longitude: {
               N: facility.longitude
             },
-            'addess.street': {
+            street: {
               S: facility.address.street
             },
-            'addess.number': {
+            addressNumber: {
               S: facility.address.number
             },
-            'addess.neighborhood': {
+            neighborhood: {
               S: facility.address.neighborhood
             },
-            'addess.postalCode': {
+            postalCode: {
               S: facility.address.postalCode
             },
-            'addess.state': {
-              S: facility.address.state
-            },
-            'addess.city': {
+            city: {
               S: facility.address.city
             },
             services: {
