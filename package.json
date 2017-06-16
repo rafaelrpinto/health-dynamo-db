@@ -15,7 +15,7 @@
   "dependencies": {
     "aws-sdk": "^2.69.0",
     "bunyan": "^1.8.10",
-    "dynamodb-wrapper": "file:../dynamodb-wrapper",
+    "dynamodb-geo": "^0.3.1",
     "fast-csv": "^2.4.0",
     "remove-accents": "^0.4.0"
   },

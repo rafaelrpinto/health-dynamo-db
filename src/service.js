@@ -1,6 +1,6 @@
 let bunyan = require('bunyan');
 let AWS = require('aws-sdk');
-let DynamoDBWrapper = require('dynamodb-wrapper');
+let ddbGeo = require('dynamodb-geo');
 let awsConfig = require('./aws-config');
 
 // We only accept hospitals, clinics, emergencies, etc.
@@ -25,37 +25,12 @@ const IGNORED_FACILITY_TYPES = [
 // logger configuration
 let log = bunyan.createLogger({name: 'dynamodb-logger'});
 
-// dynamo client
+// dynamo setup
 const dynamodb = new AWS.DynamoDB(awsConfig);
-
-// create the worker
-let dynamoDBWrapper = new DynamoDBWrapper(dynamodb, {
-  maxRetries: 6,
-  retryDelayOptions: {
-    base: 100
-  }
-});
-
-// retry listener
-dynamoDBWrapper.events.on('retry', function(e) {
-  log.warn(`An API call to DynamoDB.${e.method}() acting on table ${e.tableName} was throttled.
-   Retry attempt #${e.retryCount} will occur after a delay of ${e.retryDelayMs}ms.`);
-});
-
-// consumed capacity listener
-dynamoDBWrapper.events.on('consumedCapacity', function(e) {
-  log.warn(`An API call to DynamoDB.${e.method}() consumed ${e.capacityType}`, JSON.stringify(e.consumedCapacity, null, 2));
-});
-
-let lastCount = 0;
-// batch write progress listener
-dynamoDBWrapper.events.on('batchGroupWritten', function(e) {
-  // logs only after 500+ rows were inserted to avoid console flooding
-  if (e.processedCount - lastCount > 500) {
-    log.warn(`${e.processedCount} items sent to DynamoDB so far`);
-    lastCount = e.processedCount;
-  }
-});
+const geoDynamoConfig = new ddbGeo.GeoDataManagerConfiguration(dynamodb, awsConfig.facilities.tableName);
+geoDynamoConfig.hashKeyLength = 7; //optimized for 1km radius queries
+geoDynamoConfig.rangeKeyAttributeName = 'facilityId';
+const geoTableManager = new ddbGeo.GeoDataManager(geoDynamoConfig);
 
 /**
  * Service responsible for operations related to health facilities.
@@ -80,59 +55,58 @@ class HealthFacilitiesService {
   commit() {
     this.commitStarted = true;
 
-    log.info(`Total facilities to be commited: ${this.writeRequests.size}`);
+    log.info(`Total facilities to be sent to DynamoDB: ${this.writeRequests.size}`);
     log.info(`Total facilities ignored: ${this.ignored}`);
 
-    let params = {
-      RequestItems: {
-        [awsConfig.facilities.tableName]: Array.from(this.writeRequests.values())
-      },
-      ReturnConsumedCapacity: 'NONE',
-      ReturnItemCollectionMetrics: 'NONE'
-    };
+    const BATCH_SIZE = 25;
+    const WAIT_BETWEEN_BATCHES_MS = 700;
+    const TOTAL_FACILITIES = this.writeRequests.size;
 
-    return dynamoDBWrapper.batchWriteItem(params, {
-      [awsConfig.facilities.tableName]: {
-        partitionStrategy: 'EvenlyDistributedGroupWCU',
-        targetGroupWCU: awsConfig.facilities.wcu,
-        groupDelayMs: 150
+    let writeRequests = Array.from(this.writeRequests.values());
+    let requestsSent = 0;
+
+    // async function that will gradually send the facilities to dynamoDB
+    async function resumeWriting() {
+      const thisBatch = writeRequests.splice(0, BATCH_SIZE);
+      if (thisBatch.length === 0) {
+        // all facilities sent to dynamo
+        return Promise.resolve();
       }
-    });
+
+      // sends the facilities to dynamo
+      await geoTableManager.batchWritePoints(thisBatch).promise();
+
+      // updates the count
+      requestsSent += thisBatch.length;
+      log.info(`Facilities sent to DynamoDB ${requestsSent++}/${TOTAL_FACILITIES}`);
+
+      // sleeps
+      await new Promise(function(resolve) {
+        setInterval(resolve, WAIT_BETWEEN_BATCHES_MS);
+      });
+
+      // next batch
+      return resumeWriting();
+    }
+
+    // starts the process
+    return resumeWriting();
   }
 
   /**
    * Creates the DyhamoDB table.
    */
   async createTables() {
-    const params = {
-      TableName: awsConfig.facilities.tableName,
-      KeySchema: [
-        {
-          AttributeName: 'state',
-          KeyType: 'HASH'
-        }, {
-          AttributeName: 'facilityId',
-          KeyType: 'RANGE'
-        }
-      ],
-      AttributeDefinitions: [
-        {
-          AttributeName: 'state',
-          AttributeType: 'S'
-        }, {
-          AttributeName: 'facilityId',
-          AttributeType: 'N'
-        }
-      ],
-      ProvisionedThroughput: {
-        ReadCapacityUnits: awsConfig.facilities.rcu,
-        WriteCapacityUnits: awsConfig.facilities.wcu
-      }
+    const createTableInput = ddbGeo.GeoTableUtil.getCreateTableRequest(geoDynamoConfig);
+    createTableInput.ProvisionedThroughput = {
+      ReadCapacityUnits: awsConfig.facilities.rcu,
+      WriteCapacityUnits: awsConfig.facilities.wcu
     };
 
     try {
       log.info('Creating tables...');
-      let result = await dynamodb.createTable(params).promise();
+      let result = await dynamodb.createTable(createTableInput).promise();
+      await dynamodb.waitFor('tableExists', {TableName: awsConfig.facilities.tableName}).promise();
       log.info('Tables created', {result});
     } catch (err) {
       if (err.code === 'ResourceInUseException') {
@@ -153,11 +127,15 @@ class HealthFacilitiesService {
     let isAccepted = IGNORED_FACILITY_TYPES.every(ignored => (facility.type.indexOf(ignored) === -1));
     if (isAccepted) {
       this.writeRequests.set(facility.id, {
-        PutRequest: {
+        RangeKeyValue: {
+          S: facility.id
+        },
+        GeoPoint: {
+          latitude: facility.latitude,
+          longitude: facility.longitude
+        },
+        PutItemInput: {
           Item: {
-            state: {
-              S: facility.address.state
-            },
             facilityId: {
               N: facility.id
             },
@@ -196,6 +174,9 @@ class HealthFacilitiesService {
             },
             postalCode: {
               S: facility.address.postalCode
+            },
+            state: {
+              S: facility.address.state
             },
             city: {
               S: facility.address.city
