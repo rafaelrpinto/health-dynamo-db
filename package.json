@@ -10,7 +10,7 @@
     "debug": "node --inspect-brk src/index.js files/cnes.small.csv  | bunyan -o short"
   },
   "author": "Rafale Pinto",
-  "email": "raprp@posteo.de",
+  "email": "meuemail@posteo.pt",
   "license": "MIT",
   "dependencies": {
     "aws-sdk": "^2.69.0",
